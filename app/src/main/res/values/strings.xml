@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">BubbleLibrary</string>
+    <string name="draw_other_app_permission_denied">Permiso denegado</string>
+</resources>
