@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Point
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.CountDownTimer
 import android.os.Handler
@@ -13,13 +14,16 @@ import android.os.IBinder
 import android.view.*
 import android.view.View.OnTouchListener
 import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.annotation.RequiresApi
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import java.lang.Exception
 
 /**
  * Created by sonu on 28/03/17.
  */
-open class FloatingWidgetService() : Service(),
-    View.OnClickListener {
+open abstract class FloatingWidgetService() : Service() {
     private var mWindowManager: WindowManager? = null
     private var mFloatingWidgetView: View? = null
     private var collapsedView: View? = null
@@ -40,6 +44,18 @@ open class FloatingWidgetService() : Service(),
         return null
     }
 
+    abstract fun getItemDrawable(): Drawable
+    abstract fun getCallback(): OnFloatingClickListener
+    abstract fun getItems(): List<FloatingItem>
+
+    public fun setItems(items: List<FloatingItem>, callback: OnFloatingClickListener) {
+        if (items.size > 5) {
+            throw Exception("Max items size is 5")
+        }
+        (expandedView as RecyclerView).layoutManager = LinearLayoutManager(this)
+        (expandedView as RecyclerView).adapter = FloatingAdapter(items, callback)
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -52,8 +68,9 @@ open class FloatingWidgetService() : Service(),
             getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
         addRemoveView(inflater)
         addFloatingWidgetView(inflater)
-        implementClickListeners()
         implementTouchListenerToFloatingWidgetView()
+        collapsedView!!.findViewById<ImageView>(R.id.collapsed_iv).setImageDrawable(getItemDrawable())
+        setItems(getItems(), getCallback())
     }
 
     /*  Add Remove View to Window Manager  */
@@ -228,6 +245,9 @@ open class FloatingWidgetService() : Service(),
                             return true
                         }
                         MotionEvent.ACTION_MOVE -> {
+                            if (!isViewCollapsed) {
+                                closeView()
+                            }
                             val x_diff_move: Int = x_cord - x_init_cord
                             val y_diff_move: Int = y_cord - y_init_cord
                             x_cord_Destination = x_init_margin + x_diff_move
@@ -295,32 +315,6 @@ open class FloatingWidgetService() : Service(),
             })
     }
 
-    private fun implementClickListeners() {
-        mFloatingWidgetView!!.findViewById<View>(R.id.close_floating_view)
-            .setOnClickListener(this)
-        mFloatingWidgetView!!.findViewById<View>(R.id.close_expanded_view)
-            .setOnClickListener(this)
-        mFloatingWidgetView!!.findViewById<View>(R.id.open_activity_button)
-            .setOnClickListener(this)
-    }
-
-    override fun onClick(v: View) {
-        when (v.id) {
-            R.id.close_floating_view ->                 //close the service and remove the from from the window
-                stopSelf()
-            R.id.close_expanded_view -> {
-                collapsedView!!.visibility = View.VISIBLE
-                expandedView!!.visibility = View.GONE
-            }
-            R.id.open_activity_button -> {
-                //open the activity and stop service
-
-
-                //close the service and remove view from the view hierarchy
-                stopSelf()
-            }
-        }
-    }
 
     /*  on Floating Widget Long Click, increase the size of remove view as it look like taking focus */
     private fun onFloatingWidgetLongClick() {
@@ -457,6 +451,19 @@ open class FloatingWidgetService() : Service(),
             collapsedView!!.visibility = View.GONE
             expandedView!!.visibility = View.VISIBLE
         }
+    }
+
+    fun toggle() {
+        if (isViewCollapsed) {
+            onFloatingWidgetClick()
+        } else {
+            closeView()
+        }
+    }
+
+    private fun closeView() {
+        collapsedView!!.visibility = View.VISIBLE
+        expandedView!!.visibility = View.GONE
     }
 
     override fun onDestroy() {
