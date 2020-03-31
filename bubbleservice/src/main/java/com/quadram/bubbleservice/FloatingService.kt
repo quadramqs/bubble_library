@@ -21,10 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.Exception
 
-/**
- * Created by sonu on 28/03/17.
- */
-open abstract class FloatingWidgetService: Service() {
+open abstract class FloatingService: Service() {
     private var mWindowManager: WindowManager? = null
     private var mFloatingWidgetView: View? = null
     private var collapsedView: View? = null
@@ -85,6 +82,19 @@ open abstract class FloatingWidgetService: Service() {
         setItems(items, callback)
     }
 
+    fun getWindowViewType(): Int {
+        return when {
+            //The app is running in the problematic smartphones and with the android 7.1 version ------> WindowManager.LayoutParams.TYPE_PHONE
+            Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 -> WindowManager.LayoutParams.TYPE_PHONE
+            //The app is running in a no problematic device and with android 7.1 version
+            //!Build.MANUFACTURER.exceptionNougatManufacture() && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 -> WindowManager.LayoutParams.TYPE_PHONE
+            //The app is running in a version lower than android 8 ----------> WindowManager.LayoutParams.TYPE_TOAST
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.O -> WindowManager.LayoutParams.TYPE_TOAST
+            //The app is running in a version equal or higher than android 8 ----------> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else -> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        }
+    }
+
     /*  Add Remove View to Window Manager  */
     private fun addRemoveView(inflater: LayoutInflater): View? {
         //Inflate the removing view layout we created
@@ -94,10 +104,7 @@ open abstract class FloatingWidgetService: Service() {
         val paramRemove: WindowManager.LayoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
+            getWindowViewType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         )
@@ -125,10 +132,7 @@ open abstract class FloatingWidgetService: Service() {
         val params: WindowManager.LayoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
+            getWindowViewType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
