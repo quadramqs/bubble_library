@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.IBinder
+import android.util.Log
 import android.view.*
 import android.view.View.OnTouchListener
 import android.widget.ImageView
@@ -23,7 +24,7 @@ import java.lang.Exception
 /**
  * Created by sonu on 28/03/17.
  */
-open abstract class FloatingWidgetService() : Service() {
+open abstract class FloatingWidgetService: Service() {
     private var mWindowManager: WindowManager? = null
     private var mFloatingWidgetView: View? = null
     private var collapsedView: View? = null
@@ -35,6 +36,11 @@ open abstract class FloatingWidgetService() : Service() {
     private var y_init_cord: Int = 0
     private var x_init_margin: Int = 0
     private var y_init_margin: Int = 0
+    private var lastCoordinate: Int = 0
+
+    private var collapsedItem: ImageView? = null
+    private var changeImageRunnable: Runnable? = null
+    private var handler: Handler? = null
 
     //Variable to check if the Floating widget view is on left side or in right side
     // initially we are displaying Floating widget view to Left side so set it to true
@@ -44,16 +50,19 @@ open abstract class FloatingWidgetService() : Service() {
         return null
     }
 
-    abstract fun getItemDrawable(): Drawable
-    abstract fun getCallback(): OnFloatingClickListener
-    abstract fun getItems(): List<FloatingItem>
+    abstract val removeViewDrawable: Drawable?
+    abstract val drawableStates: List<DrawableState>
+    abstract val callback: OnFloatingClickListener
+    abstract val items: List<FloatingItem>
+    var timeToSetTransparent: Long = 500
 
-    public fun setItems(items: List<FloatingItem>, callback: OnFloatingClickListener) {
-        if (items.size > 5) {
-            throw Exception("Max items size is 5")
-        }
+    fun setItems(items: List<FloatingItem>, callback: OnFloatingClickListener) {
         (expandedView as RecyclerView).layoutManager = LinearLayoutManager(this)
-        (expandedView as RecyclerView).adapter = FloatingAdapter(items, callback)
+        (expandedView as RecyclerView).adapter = FloatingAdapter(items.toMutableList(), callback)
+    }
+
+    fun updateItems(items: List<FloatingItem>) {
+        ((expandedView as RecyclerView).adapter as FloatingAdapter).updateElements(items.toMutableList())
     }
 
     override fun onCreate() {
@@ -69,8 +78,11 @@ open abstract class FloatingWidgetService() : Service() {
         addRemoveView(inflater)
         addFloatingWidgetView(inflater)
         implementTouchListenerToFloatingWidgetView()
-        collapsedView!!.findViewById<ImageView>(R.id.collapsed_iv).setImageDrawable(getItemDrawable())
-        setItems(getItems(), getCallback())
+        val drawable = drawableStates
+            .firstOrNull { it.state == FloatingStates.DEFAULT }
+            ?: throw IllegalArgumentException("You need to provide a FloatingStates.DEFAULT image to the library.")
+        collapsedItem?.setImageDrawable(drawable.drawable)
+        setItems(items, callback)
     }
 
     /*  Add Remove View to Window Manager  */
@@ -95,9 +107,10 @@ open abstract class FloatingWidgetService() : Service() {
 
         //Initially the Removing widget view is not visible, so set visibility to GONE
         removeFloatingWidgetView!!.visibility = View.GONE
-        remove_image_view =
-            removeFloatingWidgetView!!.findViewById<View>(R.id.remove_img) as ImageView
-
+        remove_image_view = removeFloatingWidgetView!!.findViewById<View>(R.id.remove_img) as ImageView
+        removeViewDrawable?.let {
+            remove_image_view!!.setImageDrawable(it)
+        }
         //Add the view to the window
         mWindowManager!!.addView(removeFloatingWidgetView, paramRemove)
         return remove_image_view
@@ -132,10 +145,35 @@ open abstract class FloatingWidgetService() : Service() {
 
         //find id of collapsed view layout
         collapsedView = mFloatingWidgetView!!.findViewById(R.id.collapse_view)
-
+        collapsedItem = collapsedView!!.findViewById(R.id.collapsed_iv)
         //find id of the expanded view layout
         expandedView = mFloatingWidgetView!!.findViewById(R.id.expanded_container)
+        changeImageRunnable = Runnable {
+            Log.e("JFEM", "Runnable entrado - $isLeft")
+            if (isLeft) {
+                modifyState(FloatingStates.IDLE_LEFT)
+            } else {
+                modifyState(FloatingStates.IDLE_RIGHT)
+            }
+        }
+        handler = Handler()
     }
+
+    private fun modifyState(state: FloatingStates) {
+        Log.e("JFEM", "Estado modificado $state")
+        handler?.removeCallbacks(changeImageRunnable!!)
+        if (state == FloatingStates.DEFAULT
+            || state == FloatingStates.WAITING) {
+            handler?.postDelayed(changeImageRunnable!!, timeToSetTransparent)
+        }
+        val drawable = drawableStates.firstOrNull { it.state == state }
+        drawable?.let {
+            collapsedItem?.setImageDrawable(it.drawable)
+        } ?: run {
+            collapsedItem?.setImageDrawable(drawableStates.firstOrNull { it.state == FloatingStates.DEFAULT }?.drawable)
+        }
+    }
+
 
     private val windowManagerDefaultDisplay: Unit
         private get() {
@@ -160,17 +198,10 @@ open abstract class FloatingWidgetService() : Service() {
                 var remove_img_width: Int = 0
                 var remove_img_height: Int = 0
                 var handler_longClick: Handler = Handler()
-                var runnable_longClick: Runnable = object : Runnable {
-                    override fun run() {
-                        //On Floating Widget Long Click
-
-                        //Set isLongClick as true
-                        isLongClick = true
-
-                        //Set remove widget view visibility to VISIBLE
-                        removeFloatingWidgetView!!.visibility = View.VISIBLE
-                        onFloatingWidgetLongClick()
-                    }
+                var runnable_longClick: Runnable = Runnable {
+                    isLongClick = true
+                    removeFloatingWidgetView!!.visibility = View.VISIBLE
+                    onFloatingWidgetLongClick()
                 }
 
                 override fun onTouch(
@@ -199,6 +230,7 @@ open abstract class FloatingWidgetService() : Service() {
                             //remember the initial position.
                             x_init_margin = layoutParams.x
                             y_init_margin = layoutParams.y
+                            modifyState(FloatingStates.MOVING)
                             return true
                         }
                         MotionEvent.ACTION_UP -> {
@@ -226,7 +258,7 @@ open abstract class FloatingWidgetService() : Service() {
                                 time_end = System.currentTimeMillis()
 
                                 //Also check the difference between start time and end time should be less than 300ms
-                                if ((time_end - time_start) < 100)
+                                if ((time_end - time_start) < 300)
                                     onFloatingWidgetClick()
                             }
                             y_cord_Destination = y_init_margin + y_diff
@@ -241,7 +273,9 @@ open abstract class FloatingWidgetService() : Service() {
                             inBounded = false
 
                             //reset position if user drags the floating view
+                            lastCoordinate = x_cord
                             resetPosition(x_cord)
+                            modifyState(FloatingStates.WAITING)
                             return true
                         }
                         MotionEvent.ACTION_MOVE -> {
@@ -263,7 +297,7 @@ open abstract class FloatingWidgetService() : Service() {
                                     szWindow.y - (remove_img_height * 1.5).toInt()
 
                                 //If Floating view comes under Remove View update Window Manager
-                                if ((x_cord >= x_bound_left && x_cord <= x_bound_right) && y_cord >= y_bound_top) {
+                                if ((x_cord in x_bound_left..x_bound_right) && y_cord >= y_bound_top) {
                                     inBounded = true
                                     val x_cord_remove: Int =
                                         ((szWindow.x - (remove_img_height * 1.5)) / 2).toInt()
@@ -307,6 +341,7 @@ open abstract class FloatingWidgetService() : Service() {
 
                             //Update the layout with new X & Y coordinate
                             mWindowManager!!.updateViewLayout(mFloatingWidgetView, layoutParams)
+                            modifyState(FloatingStates.MOVING)
                             return true
                         }
                     }
@@ -334,6 +369,7 @@ open abstract class FloatingWidgetService() : Service() {
 
     /*  Reset position of Floating Widget view on dragging  */
     private fun resetPosition(x_cord_now: Int) {
+        Log.e("JFEM", "$x_cord_now posicion reseteada")
         if (x_cord_now <= szWindow.x / 2) {
             isLeft = true
             moveToLeft(x_cord_now)
@@ -445,9 +481,6 @@ open abstract class FloatingWidgetService() : Service() {
     /*  on Floating widget click show expanded view  */
     private fun onFloatingWidgetClick() {
         if (isViewCollapsed) {
-            //When user clicks on the image view of the collapsed layout,
-            //visibility of the collapsed layout will be changed to "View.GONE"
-            //and expanded view will become visible.
             collapsedView!!.visibility = View.GONE
             expandedView!!.visibility = View.VISIBLE
         }
@@ -462,6 +495,7 @@ open abstract class FloatingWidgetService() : Service() {
     }
 
     private fun closeView() {
+        resetPosition(lastCoordinate)
         collapsedView!!.visibility = View.VISIBLE
         expandedView!!.visibility = View.GONE
     }

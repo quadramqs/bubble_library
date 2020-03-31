@@ -2,9 +2,7 @@ package com.quadram.bubbleservice
 
 import android.graphics.drawable.Drawable
 
-data class FloatingItem(
-    val name: String,
-    val id: String,
+data class DrawableState(
     val drawable: Drawable,
-    val isVisible: Boolean = true
+    val state: FloatingStates
 )
