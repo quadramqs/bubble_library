@@ -24,9 +24,8 @@
             <!--   ImageView of floating widget  -->
             <ImageSwitcher
                 android:id="@+id/collapsed_iv"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:layout_marginTop="8dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 tools:ignore="ContentDescription" />
 
         </RelativeLayout>

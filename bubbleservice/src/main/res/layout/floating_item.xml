@@ -16,9 +16,10 @@
         android:layout_height="wrap_content">
 
         <ImageView
+            android:scaleType="fitCenter"
             android:id="@+id/floating_image_view"
-            android:layout_width="50dp"
-            android:layout_height="50dp"/>
+            android:layout_width="60dp"
+            android:layout_height="60dp"/>
 
         <TextView
             android:visibility="gone"

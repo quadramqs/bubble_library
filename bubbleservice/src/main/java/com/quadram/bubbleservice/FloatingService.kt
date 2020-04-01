@@ -45,6 +45,7 @@ open abstract class FloatingService: Service() {
 
     private var collapsedItem: ImageSwitcher? = null
     private var changeImageRunnable: Runnable? = null
+    private var changeToWaitingRunnable: Runnable? = null
     private var handler: Handler? = null
 
     //Variable to check if the Floating widget view is on left side or in right side
@@ -83,14 +84,10 @@ open abstract class FloatingService: Service() {
         addRemoveView(inflater)
         addFloatingWidgetView(inflater)
         implementTouchListenerToFloatingWidgetView()
-        val drawable = drawableStates
-            .firstOrNull { it.state == FloatingStates.DEFAULT_OPEN }
-            ?: throw IllegalArgumentException("You need to provide a FloatingStates.DEFAULT image to the library.")
-
         collapsedItem?.setFactory { ImageView(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         } }
-        collapsedItem?.setImageDrawable(drawable.drawable)
+        modifyState(FloatingStates.CLOSE)
         setItems(items, callback)
     }
 
@@ -167,28 +164,41 @@ open abstract class FloatingService: Service() {
         //find id of the expanded view layout
         expandedView = RecyclerView(this)
         changeImageRunnable = Runnable {
-            Log.e("JFEM", "Runnable entrado - $isLeft")
             if (isLeft) {
                 modifyState(FloatingStates.IDLE_LEFT)
             } else {
                 modifyState(FloatingStates.IDLE_RIGHT)
             }
         }
+        changeToWaitingRunnable = Runnable {
+            modifyState(FloatingStates.WAITING)
+        }
         handler = Handler()
     }
 
     private fun modifyState(state: FloatingStates) {
-        Log.e("JFEM", "Estado modificado $state")
-        handler?.removeCallbacks(changeImageRunnable!!)
-        if (state == FloatingStates.DEFAULT_OPEN
-            || state == FloatingStates.WAITING) {
-            handler?.postDelayed(changeImageRunnable!!, timeToSetTransparent)
+        when (state) {
+            FloatingStates.WAITING -> handler?.postDelayed(changeImageRunnable!!, timeToSetTransparent)
+            FloatingStates.OPEN -> {
+                handler?.removeCallbacks(changeImageRunnable!!)
+                handler?.removeCallbacks(changeToWaitingRunnable!!)
+            }
+            FloatingStates.IDLE_LEFT -> {
+                handler?.removeCallbacks(changeImageRunnable!!)
+                handler?.removeCallbacks(changeToWaitingRunnable!!)
+            }
+            FloatingStates.IDLE_RIGHT -> {
+                handler?.removeCallbacks(changeImageRunnable!!)
+                handler?.removeCallbacks(changeToWaitingRunnable!!)
+            }
+            FloatingStates.CLOSE -> handler?.postDelayed(changeToWaitingRunnable!!, timeToSetTransparent)
+            FloatingStates.DEFAULT -> {}
         }
         val drawable = drawableStates.firstOrNull { it.state == state }
         drawable?.let {
             collapsedItem?.setImageDrawable(it.drawable)
         } ?: run {
-            collapsedItem?.setImageDrawable(drawableStates.firstOrNull { it.state == FloatingStates.DEFAULT_OPEN }?.drawable)
+            collapsedItem?.setImageDrawable(drawableStates.firstOrNull { it.state == FloatingStates.DEFAULT }?.drawable)
         }
     }
 
@@ -247,7 +257,6 @@ open abstract class FloatingService: Service() {
                             //remember the initial position.
                             x_init_margin = layoutParams.x
                             y_init_margin = layoutParams.y
-                            modifyState(FloatingStates.MOVING)
                             return true
                         }
                         MotionEvent.ACTION_UP -> {
@@ -292,7 +301,6 @@ open abstract class FloatingService: Service() {
                             //reset position if user drags the floating view
                             lastCoordinate = x_cord
                             resetPosition(x_cord)
-                            modifyState(FloatingStates.WAITING)
                             return true
                         }
                         MotionEvent.ACTION_MOVE -> {
@@ -358,7 +366,6 @@ open abstract class FloatingService: Service() {
 
                             //Update the layout with new X & Y coordinate
                             mWindowManager!!.updateViewLayout(mFloatingWidgetView, layoutParams)
-                            modifyState(FloatingStates.MOVING)
                             return true
                         }
                     }
@@ -473,7 +480,7 @@ open abstract class FloatingService: Service() {
 
     fun toggle() {
         if (isViewCollapsed) {
-            modifyState(FloatingStates.DEFAULT_OPEN)
+            modifyState(FloatingStates.OPEN)
             onFloatingWidgetClick()
         } else {
             modifyState(FloatingStates.CLOSE)
