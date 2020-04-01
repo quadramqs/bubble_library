@@ -16,7 +16,8 @@
         android:layout_height="wrap_content">
 
         <ImageView
-            android:scaleType="center"
+            android:src="@drawable/ic_floating_launcher"
+            android:scaleType="fitCenter"
             android:id="@+id/floating_image_view"
             android:layout_width="80dp"
             android:layout_height="80dp"/>

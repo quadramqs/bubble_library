@@ -42,7 +42,7 @@ open abstract class FloatingService: Service() {
     private var y_init_margin: Int = 0
     private var lastCoordinate: Int = 0
     private var linearLayoutParent: LinearLayout? = null
-
+    private var lastState: FloatingStates = FloatingStates.DEFAULT
     private var collapsedItem: ImageSwitcher? = null
     private var changeImageRunnable: Runnable? = null
     private var changeToWaitingRunnable: Runnable? = null
@@ -61,6 +61,7 @@ open abstract class FloatingService: Service() {
     abstract val callback: OnFloatingClickListener
     abstract val items: List<FloatingItem>
     open val timeToSetTransparent: Long = 500
+    open val timeToWaiting: Long = 500
 
     fun setItems(items: List<FloatingItem>, callback: OnFloatingClickListener) {
         (expandedView as RecyclerView).layoutManager = LinearLayoutManager(this)
@@ -148,7 +149,7 @@ open abstract class FloatingService: Service() {
         )
 
         //Specify the view position
-        params.gravity = Gravity.TOP or Gravity.LEFT
+        params.gravity = Gravity.TOP or Gravity.START
 
         //Initially view will be added to top-left corner, you change x-y coordinates according to your need
         params.x = 0
@@ -177,6 +178,7 @@ open abstract class FloatingService: Service() {
     }
 
     private fun modifyState(state: FloatingStates) {
+        this.lastState = state
         when (state) {
             FloatingStates.WAITING -> handler?.postDelayed(changeImageRunnable!!, timeToSetTransparent)
             FloatingStates.OPEN -> {
@@ -191,14 +193,20 @@ open abstract class FloatingService: Service() {
                 handler?.removeCallbacks(changeImageRunnable!!)
                 handler?.removeCallbacks(changeToWaitingRunnable!!)
             }
-            FloatingStates.CLOSE -> handler?.postDelayed(changeToWaitingRunnable!!, timeToSetTransparent)
+            FloatingStates.CLOSE -> handler?.postDelayed(changeToWaitingRunnable!!, timeToWaiting)
+            FloatingStates.MOVING -> {
+                handler?.removeCallbacks(changeImageRunnable!!)
+                handler?.removeCallbacks(changeToWaitingRunnable!!)
+                this.lastState = FloatingStates.CLOSE
+            }
             FloatingStates.DEFAULT -> {}
         }
-        val drawable = drawableStates.firstOrNull { it.state == state }
+        val drawable = drawableStates.firstOrNull { it.state == this.lastState }
         drawable?.let {
             collapsedItem?.setImageDrawable(it.drawable)
         } ?: run {
-            collapsedItem?.setImageDrawable(drawableStates.firstOrNull { it.state == FloatingStates.DEFAULT }?.drawable)
+            collapsedItem?.setImageDrawable(drawableStates.firstOrNull { it.state == FloatingStates.DEFAULT }?.drawable ?:
+            throw IllegalStateException("You need to provide a default state with FloatingStates.DEFAULT options"))
         }
     }
 
@@ -301,6 +309,9 @@ open abstract class FloatingService: Service() {
                             //reset position if user drags the floating view
                             lastCoordinate = x_cord
                             resetPosition(x_cord)
+                            if (lastState != FloatingStates.OPEN) {
+                                modifyState(lastState)
+                            }
                             return true
                         }
                         MotionEvent.ACTION_MOVE -> {
@@ -363,7 +374,7 @@ open abstract class FloatingService: Service() {
                             }
                             layoutParams.x = x_cord_Destination
                             layoutParams.y = y_cord_Destination
-
+                            modifyState(FloatingStates.MOVING)
                             //Update the layout with new X & Y coordinate
                             mWindowManager!!.updateViewLayout(mFloatingWidgetView, layoutParams)
                             return true
