@@ -2,17 +2,19 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
+    android:animateLayoutChanges="false"
     android:layout_height="wrap_content">
 
     <!--   Root container of Floating Widget View  -->
-    <RelativeLayout
+    <LinearLayout
+        android:animateLayoutChanges="false"
+        android:orientation="horizontal"
         android:id="@+id/root_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">
 
-        <!--  View while view is collapsed  -->
-
         <RelativeLayout
+            android:animateLayoutChanges="false"
             android:id="@+id/collapse_view"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -20,24 +22,14 @@
             android:visibility="visible">
 
             <!--   ImageView of floating widget  -->
-            <ImageView
+            <ImageSwitcher
                 android:id="@+id/collapsed_iv"
                 android:layout_width="60dp"
                 android:layout_height="60dp"
                 android:layout_marginTop="8dp"
-                android:src="@drawable/ic_floating_launcher"
                 tools:ignore="ContentDescription" />
 
         </RelativeLayout>
 
-        <!--   View while view is expanded   -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/expanded_container"
-            android:layout_width="200dp"
-            android:layout_height="wrap_content"
-            android:background="@android:color/white"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:visibility="gone" />
-    </RelativeLayout>
+    </LinearLayout>
 </FrameLayout>

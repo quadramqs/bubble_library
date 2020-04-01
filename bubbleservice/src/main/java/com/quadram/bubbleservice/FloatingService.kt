@@ -1,5 +1,6 @@
 package com.quadram.bubbleservice
 
+import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -14,12 +15,18 @@ import android.os.IBinder
 import android.util.Log
 import android.view.*
 import android.view.View.OnTouchListener
+import android.view.View.inflate
+import android.widget.FrameLayout
+import android.widget.ImageSwitcher
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.annotation.RequiresApi
+import androidx.core.view.contains
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.Exception
+import kotlin.math.exp
+
 
 open abstract class FloatingService: Service() {
     private var mWindowManager: WindowManager? = null
@@ -34,8 +41,9 @@ open abstract class FloatingService: Service() {
     private var x_init_margin: Int = 0
     private var y_init_margin: Int = 0
     private var lastCoordinate: Int = 0
+    private var linearLayoutParent: LinearLayout? = null
 
-    private var collapsedItem: ImageView? = null
+    private var collapsedItem: ImageSwitcher? = null
     private var changeImageRunnable: Runnable? = null
     private var handler: Handler? = null
 
@@ -55,11 +63,11 @@ open abstract class FloatingService: Service() {
 
     fun setItems(items: List<FloatingItem>, callback: OnFloatingClickListener) {
         (expandedView as RecyclerView).layoutManager = LinearLayoutManager(this)
-        (expandedView as RecyclerView).adapter = FloatingAdapter(items.toMutableList(), callback)
+        (expandedView as RecyclerView).adapter = FloatingAdapter(items.filter { it.isVisible }.toMutableList(), callback)
     }
 
     fun updateItems(items: List<FloatingItem>) {
-        ((expandedView as RecyclerView).adapter as FloatingAdapter).updateElements(items.toMutableList())
+        ((expandedView as RecyclerView).adapter as FloatingAdapter).updateElements(items.filter { it.isVisible }.toMutableList())
     }
 
     override fun onCreate() {
@@ -76,13 +84,18 @@ open abstract class FloatingService: Service() {
         addFloatingWidgetView(inflater)
         implementTouchListenerToFloatingWidgetView()
         val drawable = drawableStates
-            .firstOrNull { it.state == FloatingStates.DEFAULT }
+            .firstOrNull { it.state == FloatingStates.DEFAULT_OPEN }
             ?: throw IllegalArgumentException("You need to provide a FloatingStates.DEFAULT image to the library.")
+
+        collapsedItem?.setFactory { ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        } }
         collapsedItem?.setImageDrawable(drawable.drawable)
         setItems(items, callback)
     }
 
-    fun getWindowViewType(): Int {
+    @SuppressLint("InlinedApi")
+    private fun getWindowViewType(): Int {
         return when {
             //The app is running in the problematic smartphones and with the android 7.1 version ------> WindowManager.LayoutParams.TYPE_PHONE
             Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 -> WindowManager.LayoutParams.TYPE_PHONE
@@ -127,7 +140,7 @@ open abstract class FloatingService: Service() {
     private fun addFloatingWidgetView(inflater: LayoutInflater) {
         //Inflate the floating view layout we created
         mFloatingWidgetView = inflater.inflate(R.layout.floating_widget_layout, null)
-
+        linearLayoutParent = mFloatingWidgetView!!.findViewById<LinearLayout>(R.id.root_container)
         //Add the view to the window.
         val params: WindowManager.LayoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -149,9 +162,10 @@ open abstract class FloatingService: Service() {
 
         //find id of collapsed view layout
         collapsedView = mFloatingWidgetView!!.findViewById(R.id.collapse_view)
+
         collapsedItem = collapsedView!!.findViewById(R.id.collapsed_iv)
         //find id of the expanded view layout
-        expandedView = mFloatingWidgetView!!.findViewById(R.id.expanded_container)
+        expandedView = RecyclerView(this)
         changeImageRunnable = Runnable {
             Log.e("JFEM", "Runnable entrado - $isLeft")
             if (isLeft) {
@@ -166,7 +180,7 @@ open abstract class FloatingService: Service() {
     private fun modifyState(state: FloatingStates) {
         Log.e("JFEM", "Estado modificado $state")
         handler?.removeCallbacks(changeImageRunnable!!)
-        if (state == FloatingStates.DEFAULT
+        if (state == FloatingStates.DEFAULT_OPEN
             || state == FloatingStates.WAITING) {
             handler?.postDelayed(changeImageRunnable!!, timeToSetTransparent)
         }
@@ -174,13 +188,12 @@ open abstract class FloatingService: Service() {
         drawable?.let {
             collapsedItem?.setImageDrawable(it.drawable)
         } ?: run {
-            collapsedItem?.setImageDrawable(drawableStates.firstOrNull { it.state == FloatingStates.DEFAULT }?.drawable)
+            collapsedItem?.setImageDrawable(drawableStates.firstOrNull { it.state == FloatingStates.DEFAULT_OPEN }?.drawable)
         }
     }
 
-
     private val windowManagerDefaultDisplay: Unit
-        private get() {
+        get() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) mWindowManager!!.defaultDisplay
                 .getSize(szWindow) else {
                 val w: Int = mWindowManager!!.defaultDisplay.width
@@ -263,7 +276,7 @@ open abstract class FloatingService: Service() {
 
                                 //Also check the difference between start time and end time should be less than 300ms
                                 if ((time_end - time_start) < 300)
-                                    onFloatingWidgetClick()
+                                    toggle()
                             }
                             y_cord_Destination = y_init_margin + y_diff
                             val barHeight: Int = statusBarHeight
@@ -385,59 +398,22 @@ open abstract class FloatingService: Service() {
 
     /*  Method to move the Floating widget view to Left  */
     private fun moveToLeft(current_x_cord: Int) {
-        val x: Int = szWindow.x - current_x_cord
-        object : CountDownTimer(500, 5) {
-            //get params of Floating Widget view
-            var mParams: WindowManager.LayoutParams =
-                mFloatingWidgetView!!.layoutParams as WindowManager.LayoutParams
+        val mParams: WindowManager.LayoutParams =
+            mFloatingWidgetView!!.layoutParams as WindowManager.LayoutParams
+        mParams.x = 0
 
-            override fun onTick(t: Long) {
-                val step: Long = (500 - t) / 5
-                mParams.x = 0 - (current_x_cord * current_x_cord * step).toInt()
-
-                //If you want bounce effect uncomment below line and comment above line
-                // mParams.x = 0 - (int) (double) bounceValue(step, x);
-
-
-                //Update window manager for Floating Widget
-                mWindowManager!!.updateViewLayout(mFloatingWidgetView, mParams)
-            }
-
-            override fun onFinish() {
-                mParams.x = 0
-
-                //Update window manager for Floating Widget
-                mWindowManager!!.updateViewLayout(mFloatingWidgetView, mParams)
-            }
-        }.start()
+        //Update window manager for Floating Widget
+        mWindowManager!!.updateViewLayout(mFloatingWidgetView, mParams)
     }
 
     /*  Method to move the Floating widget view to Right  */
     private fun moveToRight(current_x_cord: Int) {
-        object : CountDownTimer(500, 5) {
-            //get params of Floating Widget view
-            var mParams: WindowManager.LayoutParams =
-                mFloatingWidgetView!!.layoutParams as WindowManager.LayoutParams
+        val mParams: WindowManager.LayoutParams =
+            mFloatingWidgetView!!.layoutParams as WindowManager.LayoutParams
+        mParams.x = szWindow.x + current_x_cord - mFloatingWidgetView!!.width
 
-            override fun onTick(t: Long) {
-                val step: Long = (500 - t) / 5
-                mParams.x =
-                    (szWindow.x + (current_x_cord * current_x_cord * step) - mFloatingWidgetView!!.width).toInt()
-
-                //If you want bounce effect uncomment below line and comment above line
-                //  mParams.x = szWindow.x + (int) (double) bounceValue(step, x_cord_now) - mFloatingWidgetView.getWidth();
-
-                //Update window manager for Floating Widget
-                mWindowManager!!.updateViewLayout(mFloatingWidgetView, mParams)
-            }
-
-            override fun onFinish() {
-                mParams.x = szWindow.x - mFloatingWidgetView!!.width
-
-                //Update window manager for Floating Widget
-                mWindowManager!!.updateViewLayout(mFloatingWidgetView, mParams)
-            }
-        }.start()
+        //Update window manager for Floating Widget
+        mWindowManager!!.updateViewLayout(mFloatingWidgetView, mParams)
     }
 
     /*  Get Bounce value if you want to make bounce effect to your Floating Widget */
@@ -449,8 +425,7 @@ open abstract class FloatingService: Service() {
 
     /*  Detect if the floating view is collapsed or expanded */
     private val isViewCollapsed: Boolean
-        private get() = mFloatingWidgetView == null || mFloatingWidgetView!!.findViewById<View>(R.id.collapse_view)
-            .visibility == View.VISIBLE
+        get() = expandedView?.parent == null
 
     /*  return status bar height on basis of device display metrics  */
     private val statusBarHeight: Int
@@ -485,23 +460,30 @@ open abstract class FloatingService: Service() {
     /*  on Floating widget click show expanded view  */
     private fun onFloatingWidgetClick() {
         if (isViewCollapsed) {
-            collapsedView!!.visibility = View.GONE
-            expandedView!!.visibility = View.VISIBLE
+            if (expandedView?.parent != null ) {
+                (expandedView?.parent as ViewGroup).removeView(expandedView)
+            }
+            if (isLeft) {
+                linearLayoutParent?.addView(expandedView!!, 1)
+            } else {
+                linearLayoutParent?.addView(expandedView!!, 0)
+            }
         }
     }
 
     fun toggle() {
         if (isViewCollapsed) {
+            modifyState(FloatingStates.DEFAULT_OPEN)
             onFloatingWidgetClick()
         } else {
+            modifyState(FloatingStates.CLOSE)
             closeView()
         }
     }
 
     private fun closeView() {
         resetPosition(lastCoordinate)
-        collapsedView!!.visibility = View.VISIBLE
-        expandedView!!.visibility = View.GONE
+        linearLayoutParent?.removeView(expandedView)
     }
 
     override fun onDestroy() {

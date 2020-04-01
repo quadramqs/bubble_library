@@ -3,13 +3,13 @@ package com.quadram.bubblelibrary
 import android.graphics.drawable.Drawable
 import com.quadram.bubbleservice.*
 
-class FloatService: FloatingWidgetService() {
+class FloatService: FloatingService() {
 
     override val removeViewDrawable: Drawable?
         get() = null
 
     override val drawableStates: List<DrawableState>
-        get() = listOf(DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_floating_launcher), FloatingStates.DEFAULT))
+        get() = listOf(DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_floating_launcher), FloatingStates.DEFAULT_OPEN))
 
     override val callback: OnFloatingClickListener
         get() = object: OnFloatingClickListener {

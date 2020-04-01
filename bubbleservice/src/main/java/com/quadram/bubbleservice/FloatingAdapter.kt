@@ -43,6 +43,9 @@ class FloatingAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val item = list[holder.adapterPosition]
+        if (item.isVisibleText) {
+            holder.textView.visibility = View.VISIBLE
+        }
         holder.textView.text = item.name
         holder.imageView.setImageDrawable(item.drawable)
     }
