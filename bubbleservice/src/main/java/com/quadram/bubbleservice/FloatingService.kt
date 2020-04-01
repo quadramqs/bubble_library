@@ -481,11 +481,7 @@ open abstract class FloatingService: Service() {
             if (expandedView?.parent != null ) {
                 (expandedView?.parent as ViewGroup).removeView(expandedView)
             }
-            if (isLeft) {
-                linearLayoutParent?.addView(expandedView!!, 1)
-            } else {
-                linearLayoutParent?.addView(expandedView!!, 0)
-            }
+            linearLayoutParent?.addView(expandedView!!)
         }
     }
 

@@ -7,7 +7,7 @@
     android:layout_height="wrap_content">
 
     <LinearLayout
-        android:layout_margin="14dp"
+        android:layout_margin="7dp"
         android:id="@+id/linear"
         android:clickable="true"
         android:focusable="true"
