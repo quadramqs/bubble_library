@@ -60,7 +60,7 @@ open abstract class FloatingService: Service() {
     abstract val drawableStates: List<DrawableState>
     abstract val callback: OnFloatingClickListener
     abstract val items: List<FloatingItem>
-    var timeToSetTransparent: Long = 500
+    open val timeToSetTransparent: Long = 500
 
     fun setItems(items: List<FloatingItem>, callback: OnFloatingClickListener) {
         (expandedView as RecyclerView).layoutManager = LinearLayoutManager(this)

@@ -5,11 +5,14 @@ import com.quadram.bubbleservice.*
 
 class FloatService: FloatingService() {
 
+    override val timeToSetTransparent: Long
+        get() = 400
+
     override val removeViewDrawable: Drawable?
         get() = null
 
     override val drawableStates: List<DrawableState>
-        get() = listOf(DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_floating_launcher), FloatingStates.DEFAULT_OPEN))
+        get() = listOf(DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_floating_launcher), FloatingStates.OPEN))
 
     override val callback: OnFloatingClickListener
         get() = object: OnFloatingClickListener {

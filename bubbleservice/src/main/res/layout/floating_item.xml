@@ -7,19 +7,19 @@
     android:layout_height="wrap_content">
 
     <LinearLayout
+        android:layout_margin="4dp"
         android:id="@+id/linear"
         android:clickable="true"
         android:focusable="true"
-        android:padding="12dp"
         android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">
 
         <ImageView
-            android:scaleType="fitCenter"
+            android:scaleType="center"
             android:id="@+id/floating_image_view"
-            android:layout_width="60dp"
-            android:layout_height="60dp"/>
+            android:layout_width="80dp"
+            android:layout_height="80dp"/>
 
         <TextView
             android:visibility="gone"
