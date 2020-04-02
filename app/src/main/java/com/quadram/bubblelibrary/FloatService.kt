@@ -14,20 +14,22 @@ class FloatService: FloatingService() {
     override val removeViewDrawable: Drawable?
         get() = null
 
-    override val drawableStates: List<DrawableState>
-        get() = listOf(
-            DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_close), FloatingStates.OPEN),
-            DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_open), FloatingStates.CLOSE),
-            DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_right), FloatingStates.IDLE_RIGHT),
-            DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_left), FloatingStates.IDLE_LEFT),
-            DrawableState(applicationContext.resources.getDrawable(R.drawable.ic_close_trans), FloatingStates.WAITING)
-        )
+    override val iconClose: Drawable?
+        get() = applicationContext.resources.getDrawable(R.drawable.ic_close)
+    override val iconHideLeft: Drawable?
+        get() = applicationContext.resources.getDrawable(R.drawable.ic_left)
+    override val iconHideRight: Drawable?
+        get() = applicationContext.resources.getDrawable(R.drawable.ic_right)
+    override val iconOpen: Drawable?
+        get() = applicationContext.resources.getDrawable(R.drawable.ic_open)
+    override val movementStyle: FloatingStyle
+        get() = FloatingStyle.STICKED_TO_SIDES
 
     override val callback: OnFloatingClickListener
         get() = object: OnFloatingClickListener {
             override fun OnItemClick(item: FloatingItem) {
                 when (item.id) {
-                    "close" -> {  toggle() }
+                    "close" -> {  toggleMenu() }
                     "delete" -> { stopSelf() }
                 }
             }
