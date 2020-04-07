@@ -93,7 +93,7 @@ open abstract class FloatingService: Service() {
     }
 
     private fun getWindowViewType(): Int {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
             WindowManager.LayoutParams.TYPE_PHONE
