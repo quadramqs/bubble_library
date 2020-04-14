@@ -94,11 +94,17 @@ open abstract class FloatingService: Service() {
         setItems(items, callback)
     }
 
+    @SuppressLint("InlinedApi")
     private fun getWindowViewType(): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
+        return when {
+            //The app is running in the problematic smartphones and with the android 7.1 version ------> WindowManager.LayoutParams.TYPE_PHONE
+            Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 -> WindowManager.LayoutParams.TYPE_PHONE
+            //The app is running in a no problematic device and with android 7.1 version
+            //!Build.MANUFACTURER.exceptionNougatManufacture() && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 -> WindowManager.LayoutParams.TYPE_PHONE
+            //The app is running in a version lower than android 8 ----------> WindowManager.LayoutParams.TYPE_TOAST
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.O -> WindowManager.LayoutParams.TYPE_TOAST
+            //The app is running in a version equal or higher than android 8 ----------> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else -> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         }
     }
 
