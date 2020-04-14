@@ -48,6 +48,8 @@ open abstract class FloatingService: Service() {
     private var changeToWaitingRunnable: Runnable? = null
     private var handler: Handler? = null
 
+    open val THRESHOLD = 15
+
     //Variable to check if the Floating widget view is on left side or in right side
     // initially we are displaying Floating widget view to Left side so set it to true
     private var isLeft: Boolean = true
@@ -282,7 +284,7 @@ open abstract class FloatingService: Service() {
 
                             //The check for x_diff <5 && y_diff< 5 because sometime elements moves a little while clicking.
                             //So that is click event.
-                            if (Math.abs(x_diff) < 5 && Math.abs(y_diff) < 5) {
+                            if (Math.abs(x_diff) < THRESHOLD && Math.abs(y_diff) < THRESHOLD) {
                                 time_end = System.currentTimeMillis()
 
                                 //Also check the difference between start time and end time should be less than 300ms
@@ -502,4 +504,5 @@ open abstract class FloatingService: Service() {
         )
         if (removeFloatingWidgetView != null) mWindowManager!!.removeView(removeFloatingWidgetView)
     }
+
 }
